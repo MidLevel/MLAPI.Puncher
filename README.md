@@ -12,7 +12,7 @@ MLAPI.Puncher is a lightweight, cross-platform, easy to use, tiny implementation
 * Runs on NET 3.5 and above (currently targets ``net35;net45;net471;netstandard2.0``)
 * Tested on .NET Core, Mono and .NET Framework on Windows and Linux. Should work everywhere with socket access
 * Listener allows multiple people to punch at once
-* Token based to detect errors and miss punches
+* Token based to detect errors and missed punches
 
 ## Usage
 
