@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net35;net45;net471;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <Import Project="..\MLAPI.Puncher.Shared\MLAPI.Puncher.Shared.projitems" Label="Shared" Condition="Exists('..\MLAPI.Puncher.Shared\MLAPI.Puncher.Shared.projitems')" />
+</Project>

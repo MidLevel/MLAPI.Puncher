@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>{6C350A70-FD05-4CD5-8B0F-4568D535119B}</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>MLAPI.Puncher.Shared</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)MessageType.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ErrorType.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)IUDPTransport.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SlimUDPTransport.cs" />
+  </ItemGroup>
+</Project>

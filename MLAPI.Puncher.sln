@@ -1,0 +1,37 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MLAPI.Puncher.Client", "MLAPI.Puncher.Client\MLAPI.Puncher.Client.csproj", "{22B86718-BC15-4697-803E-742B9789C07C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MLAPI.Puncher.Server", "MLAPI.Puncher.Server\MLAPI.Puncher.Server.csproj", "{DB2496DA-F3D2-468F-8187-A7A3F9907097}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "MLAPI.Puncher.Shared", "MLAPI.Puncher.Shared\MLAPI.Puncher.Shared.shproj", "{6C350A70-FD05-4CD5-8B0F-4568D535119B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MLAPI.Puncher.Server.Console", "MLAPI.Puncher.Server.Console\MLAPI.Puncher.Server.Console.csproj", "{015D6034-4462-4C17-A609-C26E31DEF432}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MLAPI.Puncher.Client.Console", "MLAPI.Puncher.Client.Console\MLAPI.Puncher.Client.Console.csproj", "{E138A2D3-F844-4609-82E6-C512F09F73B3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{22B86718-BC15-4697-803E-742B9789C07C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22B86718-BC15-4697-803E-742B9789C07C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22B86718-BC15-4697-803E-742B9789C07C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22B86718-BC15-4697-803E-742B9789C07C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB2496DA-F3D2-468F-8187-A7A3F9907097}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB2496DA-F3D2-468F-8187-A7A3F9907097}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB2496DA-F3D2-468F-8187-A7A3F9907097}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB2496DA-F3D2-468F-8187-A7A3F9907097}.Release|Any CPU.Build.0 = Release|Any CPU
+		{015D6034-4462-4C17-A609-C26E31DEF432}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{015D6034-4462-4C17-A609-C26E31DEF432}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{015D6034-4462-4C17-A609-C26E31DEF432}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{015D6034-4462-4C17-A609-C26E31DEF432}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E138A2D3-F844-4609-82E6-C512F09F73B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E138A2D3-F844-4609-82E6-C512F09F73B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E138A2D3-F844-4609-82E6-C512F09F73B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E138A2D3-F844-4609-82E6-C512F09F73B3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
