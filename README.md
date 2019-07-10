@@ -27,6 +27,8 @@ server.Start(new IPEndPoint(IPAddress.Any, 6776));
 ```
 
 ### Client
+To use the client, you need the MLAPI.Puncher.Client library. This is what you use in your applications. An example of a console application can be found in MLAPI.Puncher.Client.Console.
+
 #### Listener
 The client has two parts, one part that is used by anyone who wants to allow other people to connect to them. This can be done like this:
 
