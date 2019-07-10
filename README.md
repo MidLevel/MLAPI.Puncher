@@ -33,11 +33,8 @@ To use the client, you need the MLAPI.Puncher.Client library. This is what you u
 The client has two parts, one part that is used by anyone who wants to allow other people to connect to them. This can be done like this:
 
 ```csharp
-// Public server address should be well known. Or looked up by DNS.
-string punchServerIP = "176.34.155.23";
-
 // Creates the listener with the address and port of the server.
-PuncherClient listener = new PuncherClient(new IPEndPoint(IPAddress.Parse(punchServerIP), 6776));
+PuncherClient listener = new PuncherClient("puncher.midlevel.io", 6776);
 
 // 1234 is the port where the other peer will connect and punch through.
 listener.ListenForPunches(new IPEndPoint(IPAddress.Any, 1234));
@@ -52,11 +49,8 @@ The second part is the connector. The party that wants to connect to a listener.
 // Get listener public IP address by means of a matchmaker or otherwise.
 string listenerPublicIP = "46.51.179.90"
 
-// Public server address should be well known. Or looked up by DNS.
-string punchServerIP = "176.34.155.23";
-
 // Creates the connector with the address and port to the server.
-PuncherClient connector = new PuncherClient(new IPEndPoint(IPAddress.Parse(punchServerIP), 6776));
+PuncherClient connector = new PuncherClient("puncher.midlevel.io", 6776);
 
 // Punches and returns the result
 IPEndPoint remoteEndpoint = connector.Punch(IPAddress.Parse(listenerPublicIP));
