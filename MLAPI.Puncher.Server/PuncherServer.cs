@@ -13,6 +13,7 @@ namespace MLAPI.Puncher.Server
         private readonly byte[] _buffer = new byte[64];
         private readonly byte[] _tokenBuffer = new byte[64];
         private readonly byte[] _ipBuffer = new byte[4];
+        // TODO: We never clear dictionary of old records
         private readonly Dictionary<IPAddress, Client> _listenerClients = new Dictionary<IPAddress, Client>();
         /// <summary>
         /// Gets or sets the transport used to communicate with puncher clients.

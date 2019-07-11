@@ -352,6 +352,7 @@ namespace MLAPI.Puncher.Client
                             if (MaxPunchAttempts > 0 && i != MaxPunchAttempts - 1 && RetryDelay > 0)
                             {
                                 // Sleep for delay
+                                // TODO: This will lockup the listener preventing it from accepting new punches (or even the current one) for (MaxPunchAttempts * RetryDelay) milliseconds.
                                 Thread.Sleep(RetryDelay);
                             }
                         }
