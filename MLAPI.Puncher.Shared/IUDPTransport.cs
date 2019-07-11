@@ -32,5 +32,9 @@ namespace MLAPI.Puncher.Shared
         /// </summary>
         /// <param name="endpoint">The local endpoint to bind to.</param>
         void Bind(IPEndPoint endpoint);
+        /// <summary>
+        /// Closes the transport.
+        /// </summary>
+        void Close();
     }
 }

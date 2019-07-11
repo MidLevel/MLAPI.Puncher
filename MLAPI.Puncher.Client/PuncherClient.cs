@@ -8,7 +8,7 @@ namespace MLAPI.Puncher.Client
     /// <summary>
     /// A puncher client capable of pucnhing and being punched.
     /// </summary>
-    public class PuncherClient
+    public class PuncherClient : IDisposable
     {
         /// <summary>
         /// Gets or sets the transport used to communicate with puncher server.
@@ -384,6 +384,21 @@ namespace MLAPI.Puncher.Client
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Releases all resource used by the <see cref="T:MLAPI.Puncher.Client.PuncherClient"/> object.
+        /// </summary>
+        /// <remarks>Call <see cref="Dispose"/> when you are finished using the
+        /// <see cref="T:MLAPI.Puncher.Client.PuncherClient"/>. The <see cref="Dispose"/> method leaves the
+        /// <see cref="T:MLAPI.Puncher.Client.PuncherClient"/> in an unusable state. After calling
+        /// <see cref="Dispose"/>, you must release all references to the
+        /// <see cref="T:MLAPI.Puncher.Client.PuncherClient"/> so the garbage collector can reclaim the memory that the
+        /// <see cref="T:MLAPI.Puncher.Client.PuncherClient"/> was occupying.</remarks>
+        public void Dispose()
+        {
+            _isRunning = false;
+            Transport.Close();
         }
     }
 }
