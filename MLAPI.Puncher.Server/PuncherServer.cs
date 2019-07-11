@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using MLAPI.Puncher.Shared;
+using System.Threading;
 
 namespace MLAPI.Puncher.Server
 {
@@ -13,8 +14,11 @@ namespace MLAPI.Puncher.Server
         private readonly byte[] _buffer = new byte[64];
         private readonly byte[] _tokenBuffer = new byte[64];
         private readonly byte[] _ipBuffer = new byte[4];
-        // TODO: We never clear dictionary of old records
+
+        private readonly ReaderWriterLockSlim _listenerClientsLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
         private readonly Dictionary<IPAddress, Client> _listenerClients = new Dictionary<IPAddress, Client>();
+        private Thread _cleanupThread;
+
         /// <summary>
         /// Gets or sets the transport used to communicate with puncher clients.
         /// </summary>
@@ -28,6 +32,42 @@ namespace MLAPI.Puncher.Server
         public void Start(IPEndPoint endpoint)
         {
             Transport.Bind(endpoint);
+
+            _cleanupThread = new Thread(() =>
+            {
+                while (true)
+                {
+                    _listenerClientsLock.EnterUpgradeableReadLock();
+
+                    try
+                    {
+                        foreach (Client client in _listenerClients.Values)
+                        {
+                            // Make them expire after 120 seconds
+                            if ((DateTime.Now - client.LastRegisterTime).TotalSeconds > 120)
+                            {
+                                _listenerClientsLock.EnterWriteLock();
+
+                                try
+                                {
+                                    _listenerClients.Remove(client.EndPoint.Address);
+                                }
+                                finally
+                                {
+                                    _listenerClientsLock.ExitWriteLock();
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        _listenerClientsLock.ExitUpgradeableReadLock();
+                    }
+
+                    // No point in cleaning more than once every 10 seconds
+                    Thread.Sleep(10_000);
+                }
+            });
 
             while (true)
             {
@@ -59,28 +99,50 @@ namespace MLAPI.Puncher.Server
 
             if (isListener)
             {
-                if (_listenerClients.TryGetValue(senderAddress, out Client client))
+                _listenerClientsLock.EnterUpgradeableReadLock();
+
+                try
                 {
-                    client.EndPoint = senderEndpoint;
-                    client.IsConnector = isConnector;
-                    client.IsListener = isListener;
-                    client.LastRegisterTime = DateTime.Now;
-                }
-                else
-                {
-                    _listenerClients.Add(senderAddress, new Client()
+                    if (_listenerClients.TryGetValue(senderAddress, out Client client))
                     {
-                        EndPoint = senderEndpoint,
-                        IsConnector = isConnector,
-                        IsListener = isListener,
-                        LastRegisterTime = DateTime.Now
-                    });
+                        _listenerClientsLock.EnterWriteLock();
+
+                        try
+                        {
+                            client.EndPoint = senderEndpoint;
+                            client.IsConnector = isConnector;
+                            client.IsListener = isListener;
+                            client.LastRegisterTime = DateTime.Now;
+                        }
+                        finally
+                        {
+                            _listenerClientsLock.ExitWriteLock();
+                        }
+                    }
+                    else
+                    {
+                        _listenerClientsLock.EnterWriteLock();
+
+                        try
+                        {
+                            _listenerClients.Add(senderAddress, new Client()
+                            {
+                                EndPoint = senderEndpoint,
+                                IsConnector = isConnector,
+                                IsListener = isListener,
+                                LastRegisterTime = DateTime.Now
+                            });
+                        }
+                        finally
+                        {
+                            _listenerClientsLock.ExitWriteLock();
+                        }
+                    }
                 }
-            }
-            else
-            {
-                // Below line breaks when multiple clinets use the same address
-                //_listenerClients.Remove(senderAddress);
+                finally
+                {
+                    _listenerClientsLock.ExitUpgradeableReadLock();
+                }
             }
 
             if (isConnector)
@@ -104,48 +166,57 @@ namespace MLAPI.Puncher.Server
                 // Copy token to token buffer
                 Buffer.BlockCopy(_buffer, 7, _tokenBuffer, 0, tokenSize);
 
-                // Look for the client they wish to connec tto
-                if (_listenerClients.TryGetValue(listenerAddress, out Client listenerClient) && listenerClient.IsListener)
+                _listenerClientsLock.EnterReadLock();
+
+                try
                 {
-                    // Write message type
-                    _buffer[0] = (byte)MessageType.ConnectTo;
+                    // Look for the client they wish to connec tto
+                    if (_listenerClients.TryGetValue(listenerAddress, out Client listenerClient) && listenerClient.IsListener)
+                    {
+                        // Write message type
+                        _buffer[0] = (byte)MessageType.ConnectTo;
 
-                    // Write address
-                    Buffer.BlockCopy(listenerClient.EndPoint.Address.GetAddressBytes(), 0, _buffer, 1, 4);
+                        // Write address
+                        Buffer.BlockCopy(listenerClient.EndPoint.Address.GetAddressBytes(), 0, _buffer, 1, 4);
 
-                    // Write port
-                    _buffer[5] = (byte)listenerClient.EndPoint.Port;
-                    _buffer[6] = (byte)(listenerClient.EndPoint.Port >> 8);
+                        // Write port
+                        _buffer[5] = (byte)listenerClient.EndPoint.Port;
+                        _buffer[6] = (byte)(listenerClient.EndPoint.Port >> 8);
 
-                    // Write token length
-                    _buffer[7] = tokenSize;
+                        // Write token length
+                        _buffer[7] = tokenSize;
 
-                    // Write token
-                    Buffer.BlockCopy(_tokenBuffer, 0, _buffer, 8, tokenSize);
+                        // Write token
+                        Buffer.BlockCopy(_tokenBuffer, 0, _buffer, 8, tokenSize);
 
-                    // Send to connector
-                    Transport.SendTo(_buffer, 0, _buffer.Length, -1, senderEndpoint);
+                        // Send to connector
+                        Transport.SendTo(_buffer, 0, _buffer.Length, -1, senderEndpoint);
 
-                    // Write address
-                    Buffer.BlockCopy(senderAddress.GetAddressBytes(), 0, _buffer, 1, 4);
+                        // Write address
+                        Buffer.BlockCopy(senderAddress.GetAddressBytes(), 0, _buffer, 1, 4);
 
-                    // Write port
-                    _buffer[5] = (byte)senderEndpoint.Port;
-                    _buffer[6] = (byte)(senderEndpoint.Port >> 8);
+                        // Write port
+                        _buffer[5] = (byte)senderEndpoint.Port;
+                        _buffer[6] = (byte)(senderEndpoint.Port >> 8);
 
-                    // Send to listener
-                    Transport.SendTo(_buffer, 0, _buffer.Length, -1, listenerClient.EndPoint);
+                        // Send to listener
+                        Transport.SendTo(_buffer, 0, _buffer.Length, -1, listenerClient.EndPoint);
+                    }
+                    else
+                    {
+                        // Prevent info leaks
+                        Array.Clear(_buffer, 2, _buffer.Length - 2);
+
+                        _buffer[0] = (byte)MessageType.Error;
+                        _buffer[1] = (byte)ErrorType.ClientNotFound;
+
+                        // Send error
+                        Transport.SendTo(_buffer, 0, _buffer.Length, -1, senderEndpoint);
+                    }
                 }
-                else
+                finally
                 {
-                    // Prevent info leaks
-                    Array.Clear(_buffer, 2, _buffer.Length - 2);
-
-                    _buffer[0] = (byte)MessageType.Error;
-                    _buffer[1] = (byte)ErrorType.ClientNotFound;
-
-                    // Send error
-                    Transport.SendTo(_buffer, 0, _buffer.Length, -1, senderEndpoint);
+                    _listenerClientsLock.ExitReadLock();
                 }
             }
         }
