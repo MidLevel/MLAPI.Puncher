@@ -9,6 +9,7 @@
         /// Sent by client to register a listen or a connection request.
         /// </summary>
         Register,
+        Registered,
         /// <summary>
         /// Sent by server to inform the listening and connecting client to knock on each others NAT.
         /// </summary>

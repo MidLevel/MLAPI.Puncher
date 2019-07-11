@@ -11,8 +11,8 @@ namespace MLAPI.Puncher.Server
     /// </summary>
     public class PuncherServer
     {
-        private readonly byte[] _buffer = new byte[64];
-        private readonly byte[] _tokenBuffer = new byte[64];
+        private readonly byte[] _buffer = new byte[Constants.BUFFER_SIZE];
+        private readonly byte[] _tokenBuffer = new byte[Constants.TOKEN_BUFFER_SIZE];
         private readonly byte[] _ipBuffer = new byte[4];
 
         private readonly ReaderWriterLockSlim _listenerClientsLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
@@ -143,6 +143,15 @@ namespace MLAPI.Puncher.Server
                 {
                     _listenerClientsLock.ExitUpgradeableReadLock();
                 }
+
+                // Prevent info leaks
+                Array.Clear(_buffer, 0, _buffer.Length);
+
+                // Write message type
+                _buffer[0] = (byte)MessageType.Registered;
+
+                // Send to listener
+                Transport.SendTo(_buffer, 0, _buffer.Length, -1, senderEndpoint);
             }
 
             if (isConnector)
@@ -205,7 +214,7 @@ namespace MLAPI.Puncher.Server
                     else
                     {
                         // Prevent info leaks
-                        Array.Clear(_buffer, 2, _buffer.Length - 2);
+                        Array.Clear(_buffer, 0, _buffer.Length);
 
                         _buffer[0] = (byte)MessageType.Error;
                         _buffer[1] = (byte)ErrorType.ClientNotFound;

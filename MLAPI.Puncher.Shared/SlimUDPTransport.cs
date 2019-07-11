@@ -16,6 +16,11 @@ namespace MLAPI.Puncher.Shared
         /// <param name="endpoint">The local endpoint to bind to.</param>
         public void Bind(IPEndPoint endpoint)
         {
+            // Allow socket to be reused
+            _socket.ExclusiveAddressUse = false;
+            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
+            // Bind the socket
             _socket.Bind(endpoint);
         }
 
@@ -24,6 +29,7 @@ namespace MLAPI.Puncher.Shared
         /// </summary>
         public void Close()
         {
+            // Close the socket
             _socket.Close();
         }
 
@@ -77,8 +83,9 @@ namespace MLAPI.Puncher.Shared
 
             try
             {
-                int size = _socket.SendTo(buffer, offset, length, SocketFlags.None, endpoint);
-                return size;
+                // X marks the spot (See note below)
+
+                return _socket.SendTo(buffer, offset, length, SocketFlags.None, endpoint);
             }
             catch (SocketException e)
             {
@@ -88,7 +95,31 @@ namespace MLAPI.Puncher.Shared
                 }
                 else
                 {
-                    throw e;
+                    /*
+                     * YES, this is litterarly as stupid as it looks. On Linux I consistently get an exception thrown here
+                     * UnknownError with the dotnet runtime (Distro Arch, netcoreapp2.2, SDK 2.2.105)
+                     * AccessDenied on Mono (Distro Arch, JIT 5.20.1)
+                     * HOWEVER! on the second send, it works. Thus we only catch the first one and if the error occurs again we throw it.
+                     * What makes this bug basically IMPOSSIBLE to debug is that if you enter Console.WriteLine(endpoint); on the X marks the spot comment above the code will work...
+                     * Yes... You just print the endpoint. It happens with 100% consitency on both Mono and dotnet. This is super dirty but it works...
+                     * Its not a race either because Sleeping does not help. I am really clueless. Also, timeouts does not affect it.
+                     */
+                    try
+                    {
+                        System.Console.WriteLine(endpoint);
+                        return _socket.SendTo(buffer, offset, length, SocketFlags.None, endpoint);
+                    }
+                    catch (SocketException ex) 
+                    {
+                        if (ex.SocketErrorCode == SocketError.TimedOut)
+                        {
+                            return -1;
+                        }
+                        else
+                        {
+                            throw ex;
+                        }
+                    }
                 }
             }
         }
