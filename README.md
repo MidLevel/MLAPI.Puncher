@@ -16,6 +16,7 @@ MLAPI.Puncher is a lightweight, cross-platform, easy to use, tiny implementation
 * Fast, Punches in 10-20 ms (on localhost, latency not included)
 * Well commented code (read the flow below to get more understanding)
 * Safe against routing attacks by validating addresses (optional)
+* Multi server cluster supported (You can run multiple puncher servers, and clients will use all of them)
 
 ## Usage
 

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using MLAPI.Puncher.Client.Exceptions;
 using MLAPI.Puncher.Shared;
 
@@ -62,7 +65,7 @@ namespace MLAPI.Puncher.Client
         /// </summary>
         public event OnConnectorPunchSuccessfulDelegate OnConnectorPunchSuccessful;
 
-        private readonly IPEndPoint _puncherServerEndpoint;
+        private readonly IPEndPoint[] _puncherServerEndpoints;
         private bool _isRunning = false;
 
         // Buffers
@@ -75,7 +78,16 @@ namespace MLAPI.Puncher.Client
         /// <param name="puncherServerEndpoint">Puncher server endpoint.</param>
         public PuncherClient(IPEndPoint puncherServerEndpoint)
         {
-            _puncherServerEndpoint = puncherServerEndpoint;
+            _puncherServerEndpoints = new IPEndPoint[1] { puncherServerEndpoint };
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="T:MLAPI.Puncher.Client.PuncherClient"/> class with a specified server endpoints.
+        /// </summary>
+        /// <param name="puncherServerEndpoint">Puncher server endpoints.</param>
+        public PuncherClient(IPEndPoint[] puncherServerEndpoint)
+        {
+            _puncherServerEndpoints = puncherServerEndpoint;
         }
 
         /// <summary>
@@ -85,8 +97,11 @@ namespace MLAPI.Puncher.Client
         /// <param name="puncherServerPort">Puncher server port.</param>
         public PuncherClient(string puncherServerHost, ushort puncherServerPort)
         {
-            _puncherServerEndpoint = new IPEndPoint(Dns.GetHostEntry(puncherServerHost).AddressList[0], puncherServerPort);
+            // Send the DNS query
+            IPHostEntry hostEntry = Dns.GetHostEntry(puncherServerHost);
 
+            // Sort only IPv4 addresses
+            _puncherServerEndpoints = hostEntry.AddressList.Where(x => x.AddressFamily == AddressFamily.InterNetwork).Select(x => new IPEndPoint(x, puncherServerPort)).ToArray();
         }
 
         /// <summary>
@@ -100,7 +115,7 @@ namespace MLAPI.Puncher.Client
 
             _isRunning = true;
 
-            RunListenerJob(false);
+            RunListenerJob(false, false);
 
             _isRunning = false;
         }
@@ -117,7 +132,7 @@ namespace MLAPI.Puncher.Client
 
             _isRunning = true;
 
-            IPEndPoint endpoint = RunListenerJob(true);
+            IPEndPoint endpoint = RunListenerJob(true, false);
 
             _isRunning = false;
 
@@ -131,6 +146,11 @@ namespace MLAPI.Puncher.Client
         /// <param name="connectAddress">The peer connect address.</param>
         public bool TryPunch(IPAddress connectAddress, out IPEndPoint punchResult)
         {
+            if (connectAddress.AddressFamily != AddressFamily.InterNetwork)
+            {
+                throw new ArgumentException("Only IPv4 addresses can be punched. IPv6 addresses does not have to be punched as they dont use NAT.");
+            }
+
             // Bind the socket
             Transport.Bind(new IPEndPoint(IPAddress.Any, 0));
 
@@ -149,7 +169,7 @@ namespace MLAPI.Puncher.Client
             SendRegisterRequest(connectAddress, token);
 
             // Waits for response from the puncher server.
-            if (TryWaitForConnectorRegisterResponse(token, out IPEndPoint punchEndPoint))
+            if (TryWaitForConnectorRegisterResponse(token, out IPEndPoint punchEndPoint, false))
             {
                 if (DropUnknownAddresses && !punchEndPoint.Address.Equals(connectAddress))
                 {
@@ -218,12 +238,15 @@ namespace MLAPI.Puncher.Client
                 _buffer[1] = 2;
             }
 
-            // Send register
-            int size = Transport.SendTo(_buffer, 0, Constants.BUFFER_SIZE, SocketSendTimeout, _puncherServerEndpoint);
-
-            if (size != Constants.BUFFER_SIZE)
+            for (int i = 0; i < _puncherServerEndpoints.Length; i++)
             {
-                throw new SocketSendException("Could not send Register packet on socket");
+                // Send register
+                int size = Transport.SendTo(_buffer, 0, Constants.BUFFER_SIZE, SocketSendTimeout, _puncherServerEndpoints[i]);
+
+                if (size != Constants.BUFFER_SIZE)
+                {
+                    throw new SocketSendException("Could not send Register packet on socket");
+                }
             }
         }
 
@@ -255,24 +278,53 @@ namespace MLAPI.Puncher.Client
 
         #region LISTENER
 
-        private IPEndPoint RunListenerJob(bool exitOnSuccessfulPunch)
+        internal struct ListenerResponseStatus
+        {
+            public IPEndPoint EndPoint;
+            public bool IsWaitingForResponse;
+            public DateTime LastRegisterTime;
+        }
+
+        private IPEndPoint RunListenerJob(bool exitOnSuccessfulPunch, bool timeoutException)
         {
             // Register and punch loop
             SendRegisterRequest(null, null);
 
-            bool isWaitingForResponse = false;
-            DateTime lastRegisterTime = DateTime.Now;
+            // Create listener status array
+            ListenerResponseStatus[] statuses = new ListenerResponseStatus[_puncherServerEndpoints.Length];
+            for (int i = 0; i < statuses.Length; i++)
+            {
+                // Set defaults
+                statuses[i] = new ListenerResponseStatus()
+                {
+                    EndPoint = _puncherServerEndpoints[i],
+                    IsWaitingForResponse = false,
+                    LastRegisterTime = DateTime.Now
+                };
+            }
 
             while (_isRunning)
             {
                 int size = Transport.ReceiveFrom(_buffer, 0, Constants.BUFFER_SIZE, SocketReceiveTimeout, out IPEndPoint remoteEndPoint);
 
+                int indexOfEndPointStatus = -1;
+
+                for (int i = 0; i < statuses.Length; i++)
+                {
+                    if (statuses[i].EndPoint.Equals(remoteEndPoint))
+                    {
+                        indexOfEndPointStatus = i;
+                        break;
+                    }
+                }
+
                 if (size == Constants.BUFFER_SIZE)
                 {
-                    if (_buffer[0] == (byte)MessageType.Registered && remoteEndPoint != null && remoteEndPoint.Equals(_puncherServerEndpoint))
+                    if (_buffer[0] == (byte)MessageType.Registered && remoteEndPoint != null && _puncherServerEndpoints.Contains(remoteEndPoint))
                     {
                         // Registered response.
-                        isWaitingForResponse = false;
+
+                        statuses[indexOfEndPointStatus].IsWaitingForResponse = false;
                     }
                     else if (remoteEndPoint != null)
                     {
@@ -291,20 +343,21 @@ namespace MLAPI.Puncher.Client
                     }
                 }
 
-                if (!isWaitingForResponse && (DateTime.Now - lastRegisterTime).TotalMilliseconds > ServerRegisterInterval)
+                if (!statuses[indexOfEndPointStatus].IsWaitingForResponse && (DateTime.Now - statuses[indexOfEndPointStatus].LastRegisterTime).TotalMilliseconds > ServerRegisterInterval)
                 {
                     // Sends new registration request
                     SendRegisterRequest(null, null);
 
                     // Update last register time
-                    lastRegisterTime = DateTime.Now;
+                    statuses[indexOfEndPointStatus].LastRegisterTime = DateTime.Now;
+                    statuses[indexOfEndPointStatus].IsWaitingForResponse = true;
                 }
 
                 // No registration response received within timeout
-                if (isWaitingForResponse && (DateTime.Now - lastRegisterTime).TotalMilliseconds > ServerRegisterResponseTimeout)
+                if (statuses[indexOfEndPointStatus].IsWaitingForResponse && (DateTime.Now - statuses[indexOfEndPointStatus].LastRegisterTime).TotalMilliseconds > ServerRegisterResponseTimeout && timeoutException)
                 {
                     // We got no response to our register request.
-                    throw new ServerNotReachableException("The connection to the PuncherServer \"" + _puncherServerEndpoint + "\" timed out.");
+                    throw new ServerNotReachableException("The connection to the PuncherServer \"" + _puncherServerEndpoints + "\" timed out.");
                 }
             }
 
@@ -318,7 +371,7 @@ namespace MLAPI.Puncher.Client
             // Default endpoint
             punchSuccessEndpoint = null;
 
-            if (_buffer[0] == (byte)MessageType.ConnectTo && remoteEndPoint != null && remoteEndPoint.Equals(_puncherServerEndpoint))
+            if (_buffer[0] == (byte)MessageType.ConnectTo && remoteEndPoint != null && _puncherServerEndpoints.Contains(remoteEndPoint))
             {
                 // Read incoming target address, port, token length and token
                 IPAddress connectToAddress = new IPAddress(new byte[4] { _buffer[1], _buffer[2], _buffer[3], _buffer[4] });
@@ -368,7 +421,7 @@ namespace MLAPI.Puncher.Client
 
         #region CONNECTOR
 
-        private bool TryWaitForConnectorRegisterResponse(byte[] token, out IPEndPoint connectToEndpoint)
+        private bool TryWaitForConnectorRegisterResponse(byte[] token, out IPEndPoint connectToEndpoint, bool timeoutException)
         {
             DateTime responseWaitTimeStart = DateTime.Now;
             connectToEndpoint = null;
@@ -377,7 +430,7 @@ namespace MLAPI.Puncher.Client
             {
                 int size = Transport.ReceiveFrom(_buffer, 0, Constants.BUFFER_SIZE, SocketReceiveTimeout, out IPEndPoint remoteEndPoint);
 
-                if (size == Constants.BUFFER_SIZE && remoteEndPoint != null && remoteEndPoint.Equals(_puncherServerEndpoint))
+                if (size == Constants.BUFFER_SIZE && remoteEndPoint != null && _puncherServerEndpoints.Contains(remoteEndPoint))
                 {
                     if (_buffer[0] == (byte)MessageType.Error)
                     {
@@ -424,8 +477,15 @@ namespace MLAPI.Puncher.Client
                 }
             } while ((DateTime.Now - responseWaitTimeStart).TotalMilliseconds < ServerRegisterResponseTimeout && _isRunning);
 
-            // We got no response to our register request.
-            throw new ServerNotReachableException("The connection to the PuncherServer \"" + _puncherServerEndpoint + "\" timed out.");
+            if (timeoutException)
+            {
+                // We got no response to our register request.
+                throw new ServerNotReachableException("The connection to the PuncherServer \"" + _puncherServerEndpoints + "\" timed out.");
+            }
+            else
+            {
+                return false;
+            }
         }
 
         // Waits for a punch response
