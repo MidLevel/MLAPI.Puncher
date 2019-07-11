@@ -245,7 +245,7 @@ namespace MLAPI.Puncher.Client
                             }
                         }
 
-                        // Write hello
+                        // Write punch
                         _buffer[0] = (byte)MessageType.Punch;
 
                         // Write token length
@@ -271,42 +271,81 @@ namespace MLAPI.Puncher.Client
                                 {
                                     // Receive punch success
                                     size = Transport.ReceiveFrom(_buffer, 0, _buffer.Length, 1000, out remoteEndPoint);
-                                } while (isConnector &&
-                                        ((DateTime.Now - receiveStart).TotalMilliseconds < MaxResponseWaitTime) &&
-                                        (size != _buffer.Length || remoteEndPoint == null || !remoteEndPoint.Address.Equals(connectToAddress) || ((MessageType)_buffer[0]) != MessageType.PunchSuccess));
 
-                                // Sanity checks
-                                if (size == _buffer.Length && remoteEndPoint != null && remoteEndPoint.Address.Equals(connectToAddress) && ((MessageType)_buffer[0]) != MessageType.PunchSuccess)
-                                {
-                                    // Make sure token size is the same
-                                    if (_buffer[1] == tokenSize)
+                                    // Santy checks
+                                    if (size == _buffer.Length && remoteEndPoint != null && remoteEndPoint.Address.Equals(connectToAddress))
                                     {
-                                        bool correct = true;
-
-                                        for (int x = 0; x < tokenSize; x++)
+                                        if ((MessageType)_buffer[0] == MessageType.Punch)
                                         {
-                                            if (_buffer[2 + x] != _tokenBuffer[x])
+                                            // We got the listeners punch. If they punch us from a port we have not yet punched. We want to punch their new port.
+                                            // This improves symmetric NAT succeess rates.
+
+                                            // Make sure token size is the same
+                                            if (_buffer[1] == tokenSize)
                                             {
-                                                correct = false;
-                                                break;
+                                                bool correct = true;
+
+                                                for (int x = 0; x < tokenSize; x++)
+                                                {
+                                                    if (_buffer[2 + x] != _tokenBuffer[x])
+                                                    {
+                                                        correct = false;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (correct)
+                                                {
+                                                    // Token was correct. 
+
+                                                    // If the port we got the punch on is a port we have not yet punched. Use the new port to send new punches (Improves symmetric success)
+                                                    bool hasPingedPort = false;
+                                                    for (int x = 0; x < PortPredictions; x++)
+                                                    {
+                                                        if (port + x == remoteEndPoint.Port)
+                                                        {
+                                                            hasPingedPort = true;
+                                                            break;
+                                                        }
+                                                    }
+
+                                                    if (!hasPingedPort)
+                                                    {
+                                                        // They got a totally new port that we have not seen before.
+                                                        // Lets punch it. We dont need to port predict these new punches
+                                                        Transport.SendTo(_buffer, 0, _buffer.Length, 5000, new IPEndPoint(connectToAddress, remoteEndPoint.Port));
+                                                    }
+                                                }
                                             }
                                         }
+                                        else if (((MessageType)_buffer[0]) == MessageType.PunchSuccess)
+                                        {
+                                            // We got a punch success.
 
-                                        if (correct)
-                                        {
-                                            // Success
-                                            return remoteEndPoint;
-                                        }
-                                        else
-                                        {
-                                            // Invalid token. Instead of returning, continue reading in case of DoS / message cloggs
+                                            // Make sure token size is the same
+                                            if (_buffer[1] == tokenSize)
+                                            {
+                                                bool correct = true;
+
+                                                for (int x = 0; x < tokenSize; x++)
+                                                {
+                                                    if (_buffer[2 + x] != _tokenBuffer[x])
+                                                    {
+                                                        correct = false;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (correct)
+                                                {
+                                                    // Success
+                                                    return remoteEndPoint;
+                                                }
+                                            }
                                         }
                                     }
-                                    else
-                                    {
-                                        // Wrong token size. Instead of returning, continue reading in case of DoS / message cloggs
-                                    }
-                                }
+
+                                } while (isConnector && (DateTime.Now - receiveStart).TotalMilliseconds < MaxResponseWaitTime);
                             }
 
                             // If another attempt is comming up. Wait for the delay
@@ -340,10 +379,6 @@ namespace MLAPI.Puncher.Client
                             // Return the connector address that punched through our NAT
                             return remoteEndPoint;
                         }
-                    }
-                    else
-                    {
-                        // Invalid message type
                     }
                 }
             }
