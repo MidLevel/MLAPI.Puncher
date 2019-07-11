@@ -343,21 +343,25 @@ namespace MLAPI.Puncher.Client
                     }
                 }
 
-                if (!statuses[indexOfEndPointStatus].IsWaitingForResponse && (DateTime.Now - statuses[indexOfEndPointStatus].LastRegisterTime).TotalMilliseconds > ServerRegisterInterval)
+                // Resend and timeout loop
+                for (int i = 0; i < statuses.Length; i++)
                 {
-                    // Sends new registration request
-                    SendRegisterRequest(null, null);
+                    if (!statuses[i].IsWaitingForResponse && (DateTime.Now - statuses[i].LastRegisterTime).TotalMilliseconds > ServerRegisterInterval)
+                    {
+                        // Sends new registration request
+                        SendRegisterRequest(null, null);
 
-                    // Update last register time
-                    statuses[indexOfEndPointStatus].LastRegisterTime = DateTime.Now;
-                    statuses[indexOfEndPointStatus].IsWaitingForResponse = true;
-                }
+                        // Update last register time
+                        statuses[i].LastRegisterTime = DateTime.Now;
+                        statuses[i].IsWaitingForResponse = true;
+                    }
 
-                // No registration response received within timeout
-                if (statuses[indexOfEndPointStatus].IsWaitingForResponse && (DateTime.Now - statuses[indexOfEndPointStatus].LastRegisterTime).TotalMilliseconds > ServerRegisterResponseTimeout && timeoutException)
-                {
-                    // We got no response to our register request.
-                    throw new ServerNotReachableException("The connection to the PuncherServer \"" + _puncherServerEndpoints + "\" timed out.");
+                    // No registration response received within timeout
+                    if (statuses[i].IsWaitingForResponse && (DateTime.Now - statuses[i].LastRegisterTime).TotalMilliseconds > ServerRegisterResponseTimeout && timeoutException)
+                    {
+                        // We got no response to our register request.
+                        throw new ServerNotReachableException("The connection to the PuncherServer \"" + _puncherServerEndpoints + "\" timed out.");
+                    }
                 }
             }
 
