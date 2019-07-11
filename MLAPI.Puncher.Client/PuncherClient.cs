@@ -178,7 +178,7 @@ namespace MLAPI.Puncher.Client
             }
 
             // Send register
-            int size = Transport.SendTo(_buffer, 0, _buffer.Length, 5000, _puncherServerEndpoint);
+            int size = Transport.SendTo(_buffer, 0, _buffer.Length, 500, _puncherServerEndpoint);
 
             return size == _buffer.Length;
         }
@@ -196,7 +196,7 @@ namespace MLAPI.Puncher.Client
                 Array.Clear(_buffer, 0, _buffer.Length);
 
                 // Receive connectTo
-                int size = Transport.ReceiveFrom(_buffer, 0, _buffer.Length, 5000, out IPEndPoint remoteEndPoint);
+                int size = Transport.ReceiveFrom(_buffer, 0, _buffer.Length, 500, out IPEndPoint remoteEndPoint);
 
                 // Safety
                 if (size == _buffer.Length)
@@ -259,7 +259,7 @@ namespace MLAPI.Puncher.Client
                             for (int x = 0; x < PortPredictions; x++)
                             {
                                 // Send all punches
-                                Transport.SendTo(_buffer, 0, _buffer.Length, 5000, new IPEndPoint(connectToAddress, port + x));
+                                Transport.SendTo(_buffer, 0, _buffer.Length, 500, new IPEndPoint(connectToAddress, port + x));
                             }
 
                             // Safety and validation
@@ -270,7 +270,7 @@ namespace MLAPI.Puncher.Client
                                 do
                                 {
                                     // Receive punch success
-                                    size = Transport.ReceiveFrom(_buffer, 0, _buffer.Length, 1000, out remoteEndPoint);
+                                    size = Transport.ReceiveFrom(_buffer, 0, _buffer.Length, 500, out remoteEndPoint);
 
                                     // Santy checks
                                     if (size == _buffer.Length && remoteEndPoint != null && remoteEndPoint.Address.Equals(connectToAddress))
@@ -313,7 +313,7 @@ namespace MLAPI.Puncher.Client
                                                     {
                                                         // They got a totally new port that we have not seen before.
                                                         // Lets punch it. We dont need to port predict these new punches
-                                                        Transport.SendTo(_buffer, 0, _buffer.Length, 5000, new IPEndPoint(connectToAddress, remoteEndPoint.Port));
+                                                        Transport.SendTo(_buffer, 0, _buffer.Length, 500, new IPEndPoint(connectToAddress, remoteEndPoint.Port));
                                                     }
                                                 }
                                             }
@@ -373,7 +373,7 @@ namespace MLAPI.Puncher.Client
                         _buffer[0] = (byte)MessageType.PunchSuccess;
 
                         // Send punch success
-                        Transport.SendTo(_buffer, 0, _buffer.Length, 5000, remoteEndPoint);
+                        Transport.SendTo(_buffer, 0, _buffer.Length, 500, remoteEndPoint);
 
                         if (exitOnPunchSuccess)
                         {
