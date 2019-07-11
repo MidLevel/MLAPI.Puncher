@@ -16,8 +16,6 @@ namespace MLAPI.Puncher.Shared
         /// <param name="endpoint">The local endpoint to bind to.</param>
         public void Bind(IPEndPoint endpoint)
         {
-            _socket.ExclusiveAddressUse = false;
-            _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _socket.Bind(endpoint);
         }
 
