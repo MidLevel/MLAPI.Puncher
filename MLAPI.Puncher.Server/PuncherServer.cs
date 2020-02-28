@@ -64,10 +64,15 @@ namespace MLAPI.Puncher.Server
                         _listenerClientsLock.ExitUpgradeableReadLock();
                     }
 
-                    // No point in cleaning more than once every 10 seconds
-                    Thread.Sleep(10_000);
+                    // No point in cleaning more than once every 30 seconds
+                    Thread.Sleep(30_000);
                 }
-            });
+            })
+            {
+                IsBackground = true
+            };
+
+            _cleanupThread.Start();
 
             while (true)
             {
