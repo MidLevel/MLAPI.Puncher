@@ -41,23 +41,35 @@ namespace MLAPI.Puncher.Server
 
                     try
                     {
+                        List<IPAddress> addressesToRemove = new List<IPAddress>();
+
                         foreach (Client client in _listenerClients.Values)
                         {
                             // Make them expire after 120 seconds
                             if ((DateTime.Now - client.LastRegisterTime).TotalSeconds > 120)
                             {
-                                _listenerClientsLock.EnterWriteLock();
-
-                                try
-                                {
-                                    _listenerClients.Remove(client.EndPoint.Address);
-                                }
-                                finally
-                                {
-                                    _listenerClientsLock.ExitWriteLock();
-                                }
+                                addressesToRemove.Add(client.EndPoint.Address);
                             }
                         }
+
+
+                        if (addressesToRemove.Count > 0)
+                        {
+                            _listenerClientsLock.EnterWriteLock();
+
+                            try
+                            {
+                                for (int i = 0; i < addressesToRemove.Count; i++)
+                                {
+                                    _listenerClients.Remove(addressesToRemove[i]);
+                                }
+                            }
+                            finally
+                            {
+                                _listenerClientsLock.ExitWriteLock();
+                            }
+                        }
+
                     }
                     finally
                     {
